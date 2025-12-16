@@ -1,18 +1,18 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { createRoot } from 'react-dom/client';
-import { 
-  Plus, 
-  Search, 
-  Filter, 
-  MoreHorizontal, 
-  Edit2, 
-  Trash2, 
-  Settings, 
-  RefreshCw, 
-  Database, 
-  CheckCircle2, 
-  XCircle, 
-  Clock, 
+import {
+  Plus,
+  Search,
+  Filter,
+  MoreHorizontal,
+  Edit2,
+  Trash2,
+  Settings,
+  RefreshCw,
+  Database,
+  CheckCircle2,
+  XCircle,
+  Clock,
   HelpCircle,
   Briefcase
 } from 'lucide-react';
@@ -209,7 +209,7 @@ const App = () => {
   const [showConfig, setShowConfig] = useState(false);
   const [showForm, setShowForm] = useState(false);
   const [editingJob, setEditingJob] = useState<Job | null>(null);
-  
+
   // Filter/Sort State
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<Status | 'ALL'>('ALL');
@@ -221,7 +221,7 @@ const App = () => {
   useEffect(() => {
     const savedEndpoint = localStorage.getItem('gas_endpoint');
     if (savedEndpoint) setApiEndpoint(savedEndpoint);
-    
+
     // Load local data initially if no endpoint
     if (!savedEndpoint) {
       const localData = localStorage.getItem(`jobs_${activeSheet}`);
@@ -276,43 +276,43 @@ const App = () => {
   const saveJob = async (jobData: Partial<Job>) => {
     setIsLoading(true);
     const isEdit = !!editingJob;
-    
+
     const payload = {
       ...jobData,
       status: jobData.status || Status.APPLIED,
     };
 
     if (apiEndpoint) {
-      // SEND TO GOOGLE SHEETS
-      // Note: Apps Script Web Apps require 'no-cors' for simple fetch, 
-      // but to get response we often use redirect or text/plain.
-      // Standard fetch to GAS requires specific construction.
       try {
         const action = isEdit ? 'update' : 'create';
         const body = {
-          action,
+          action, // Action dikirim di body POST
           sheet: activeSheet,
           rowIndex: isEdit ? editingJob.rowIndex : undefined,
           ...payload
         };
-        
-        // We use navigator.sendBeacon or simple fetch. 
-        // For GAS Web App, POST requests follow redirects.
+
         const response = await fetch(apiEndpoint, {
           method: 'POST',
+          // START PERBAIKAN: Tambahkan header Content-Type
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          // END PERBAIKAN
           body: JSON.stringify(body)
         });
-        
+
         const result = await response.json();
         if (result.success) {
           fetchJobs(apiEndpoint, activeSheet);
           closeForm();
         } else {
+          // Menampilkan error dari Apps Script
           alert('Failed to save: ' + result.error);
         }
       } catch (e) {
         console.error(e);
-        alert('Network error saving to Google Sheet.');
+        alert('Network error saving to Google Sheet. Check console for details.');
       }
     } else {
       // SAVE LOCAL
@@ -320,10 +320,10 @@ const App = () => {
       if (isEdit && editingJob) {
         newJobs = newJobs.map(j => j.id === editingJob.id ? { ...j, ...payload } as Job : j);
       } else {
-        newJobs.push({ 
-          ...payload, 
+        newJobs.push({
+          ...payload,
           id: Math.random().toString(36).substr(2, 9),
-          rowIndex: 0 
+          rowIndex: 0
         } as Job);
       }
       setJobs(newJobs);
@@ -335,12 +335,17 @@ const App = () => {
 
   const deleteJob = async (job: Job) => {
     if (!confirm('Are you sure you want to delete this application?')) return;
-    
+
     if (apiEndpoint && job.rowIndex) {
       setIsLoading(true);
       try {
         const response = await fetch(apiEndpoint, {
           method: 'POST',
+          // START PERBAIKAN: Tambahkan header Content-Type
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          // END PERBAIKAN
           body: JSON.stringify({
             action: 'delete',
             sheet: activeSheet,
@@ -350,9 +355,11 @@ const App = () => {
         const result = await response.json();
         if (result.success) {
           fetchJobs(apiEndpoint, activeSheet);
+        } else {
+          alert('Failed to delete: ' + result.error);
         }
-      } catch(e) {
-        alert("Failed to delete remote");
+      } catch (e) {
+        alert("Failed to delete remote. Check console.");
       } finally {
         setIsLoading(false);
       }
@@ -399,8 +406,8 @@ const App = () => {
 
   const filteredJobs = useMemo(() => {
     return jobs.filter(job => {
-      const matchesSearch = 
-        job.company.toLowerCase().includes(search.toLowerCase()) || 
+      const matchesSearch =
+        job.company.toLowerCase().includes(search.toLowerCase()) ||
         job.position.toLowerCase().includes(search.toLowerCase());
       const matchesStatus = statusFilter === 'ALL' || job.status === statusFilter;
       return matchesSearch && matchesStatus;
@@ -439,18 +446,17 @@ const App = () => {
               <button
                 key={name}
                 onClick={() => setActiveSheet(name)}
-                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${
-                  activeSheet === name 
-                    ? 'bg-white text-indigo-600 shadow-sm' 
-                    : 'text-slate-500 hover:text-slate-700'
-                }`}
+                className={`px-4 py-1.5 rounded-md text-sm font-medium transition-all ${activeSheet === name
+                  ? 'bg-white text-indigo-600 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700'
+                  }`}
               >
                 {name}
               </button>
             ))}
           </div>
 
-          <button 
+          <button
             onClick={() => setShowConfig(true)}
             className={`p-2 rounded-full hover:bg-slate-100 ${!apiEndpoint ? 'text-orange-500 animate-pulse' : 'text-slate-500'}`}
             title="Connection Settings"
@@ -461,7 +467,7 @@ const App = () => {
       </header>
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
-        
+
         {/* Connection Warning */}
         {!apiEndpoint && (
           <div className="mb-8 bg-orange-50 border border-orange-200 rounded-xl p-4 flex items-start gap-3">
@@ -469,7 +475,7 @@ const App = () => {
             <div>
               <h3 className="font-semibold text-orange-800">Local Mode</h3>
               <p className="text-sm text-orange-700 mt-1">
-                Currently running in local demo mode. Data is saved to your browser. 
+                Currently running in local demo mode. Data is saved to your browser.
                 To sync with Google Sheets, click the gear icon (top right) and connect your sheet.
               </p>
             </div>
@@ -488,17 +494,17 @@ const App = () => {
           <div className="flex items-center gap-3 w-full md:w-auto">
             <div className="relative w-full md:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-              <input 
-                type="text" 
-                placeholder="Search companies..." 
+              <input
+                type="text"
+                placeholder="Search companies..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
               />
             </div>
-            
-            <select 
-              value={statusFilter} 
+
+            <select
+              value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as Status | 'ALL')}
               className="px-3 py-2 bg-white border border-slate-200 rounded-lg text-sm text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500"
             >
@@ -508,14 +514,14 @@ const App = () => {
           </div>
 
           <div className="flex gap-3 w-full md:w-auto">
-            <button 
+            <button
               onClick={() => apiEndpoint ? fetchJobs(apiEndpoint, activeSheet) : null}
               className="px-4 py-2 text-slate-600 bg-white border border-slate-200 rounded-lg text-sm font-medium hover:bg-slate-50 flex items-center gap-2"
             >
               <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
               Refresh
             </button>
-            <button 
+            <button
               onClick={() => openForm()}
               className="px-4 py-2 bg-indigo-600 text-white rounded-lg text-sm font-medium hover:bg-indigo-700 shadow-md shadow-indigo-200 flex items-center gap-2 w-full md:w-auto justify-center"
             >
@@ -574,13 +580,13 @@ const App = () => {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button 
+                          <button
                             onClick={() => openForm(job)}
                             className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-md transition-colors"
                           >
                             <Edit2 size={16} />
                           </button>
-                          <button 
+                          <button
                             onClick={() => deleteJob(job)}
                             className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-md transition-colors"
                           >
@@ -598,30 +604,30 @@ const App = () => {
       </main>
 
       {/* Edit/Add Modal */}
-      <Modal 
-        isOpen={showForm} 
-        onClose={closeForm} 
+      <Modal
+        isOpen={showForm}
+        onClose={closeForm}
         title={editingJob ? "Edit Application" : "New Application"}
       >
         <div className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Company</label>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                 value={formData.company || ''}
-                onChange={e => setFormData({...formData, company: e.target.value})}
+                onChange={e => setFormData({ ...formData, company: e.target.value })}
                 placeholder="Google, etc."
               />
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Position</label>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                 value={formData.position || ''}
-                onChange={e => setFormData({...formData, position: e.target.value})}
+                onChange={e => setFormData({ ...formData, position: e.target.value })}
                 placeholder="Frontend Engineer"
               />
             </div>
@@ -630,21 +636,21 @@ const App = () => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Status</label>
-              <select 
+              <select
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                 value={formData.status || Status.APPLIED}
-                onChange={e => setFormData({...formData, status: e.target.value as Status})}
+                onChange={e => setFormData({ ...formData, status: e.target.value as Status })}
               >
                 {Object.values(Status).map(s => <option key={s} value={s}>{s}</option>)}
               </select>
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Salary</label>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                 value={formData.salary || ''}
-                onChange={e => setFormData({...formData, salary: e.target.value})}
+                onChange={e => setFormData({ ...formData, salary: e.target.value })}
                 placeholder="e.g. $100k - $120k"
               />
             </div>
@@ -653,41 +659,41 @@ const App = () => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Location</label>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                 value={formData.location || ''}
-                onChange={e => setFormData({...formData, location: e.target.value})}
+                onChange={e => setFormData({ ...formData, location: e.target.value })}
               />
             </div>
             <div>
               <label className="block text-xs font-medium text-slate-500 mb-1">Apply Date</label>
-              <input 
-                type="date" 
+              <input
+                type="date"
                 className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
                 value={formData.applyDate || ''}
-                onChange={e => setFormData({...formData, applyDate: e.target.value})}
+                onChange={e => setFormData({ ...formData, applyDate: e.target.value })}
               />
             </div>
           </div>
-          
+
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">Apply Via</label>
-            <input 
-              type="text" 
+            <input
+              type="text"
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
               value={formData.applyVia || ''}
-              onChange={e => setFormData({...formData, applyVia: e.target.value})}
+              onChange={e => setFormData({ ...formData, applyVia: e.target.value })}
               placeholder="LinkedIn, Referral, etc."
             />
           </div>
 
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">Notes</label>
-            <textarea 
+            <textarea
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none h-24 resize-none"
               value={formData.notes || ''}
-              onChange={e => setFormData({...formData, notes: e.target.value})}
+              onChange={e => setFormData({ ...formData, notes: e.target.value })}
               placeholder="Interview details, specific requirements..."
             />
           </div>
@@ -696,7 +702,7 @@ const App = () => {
             <button onClick={closeForm} className="flex-1 py-2.5 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-lg transition-colors">
               Cancel
             </button>
-            <button 
+            <button
               onClick={() => saveJob(formData)}
               className="flex-1 py-2.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg shadow-md shadow-indigo-200 transition-colors flex justify-center items-center gap-2"
               disabled={isLoading}
@@ -713,7 +719,7 @@ const App = () => {
           <p className="text-sm text-slate-600 leading-relaxed">
             To connect this app to your Google Sheet, you need to create a simple Apps Script bridge. This allows secure access without complex OAuth setup.
           </p>
-          
+
           <div className="bg-slate-50 p-4 rounded-lg border border-slate-200 text-sm">
             <ol className="list-decimal list-inside space-y-2 text-slate-700">
               <li>Open your Google Sheet.</li>
@@ -729,12 +735,12 @@ const App = () => {
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">Apps Script Code</label>
             <div className="relative">
-              <textarea 
-                readOnly 
+              <textarea
+                readOnly
                 className="w-full h-32 px-3 py-2 bg-slate-900 text-slate-200 text-xs font-mono rounded-lg outline-none resize-none p-4"
                 value={GAS_CODE}
               />
-              <button 
+              <button
                 onClick={() => navigator.clipboard.writeText(GAS_CODE)}
                 className="absolute top-2 right-2 p-1 bg-white/10 text-white rounded hover:bg-white/20 text-xs"
               >
@@ -745,8 +751,8 @@ const App = () => {
 
           <div>
             <label className="block text-xs font-medium text-slate-500 mb-1">Web App URL</label>
-            <input 
-              type="text" 
+            <input
+              type="text"
               className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
               placeholder="https://script.google.com/macros/s/..."
               value={apiEndpoint}
@@ -755,7 +761,7 @@ const App = () => {
           </div>
 
           <div className="pt-4">
-            <button 
+            <button
               onClick={() => saveConfig(apiEndpoint)}
               className="w-full py-2.5 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
             >
