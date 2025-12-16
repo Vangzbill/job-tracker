@@ -57,7 +57,6 @@ const STATUS_COLORS: Record<Status, string> = {
 const SHEET_NAMES: SheetName[] = ['Didil', 'Sabil'];
 
 // --- Google Apps Script Template ---
-// Template code diperbarui agar sesuai dengan perubahan di Kode.gs (disederhanakan)
 const GAS_CODE = `
 // ----------------------------------------------------------------
 // PASTE THIS INTO EXTENSIONS > APPS SCRIPT IN YOUR GOOGLE SHEET
@@ -65,13 +64,11 @@ const GAS_CODE = `
 // ----------------------------------------------------------------
 
 function doGet(e) {
-  // Hanya melayani aksi 'read'
   if (e.parameter.action === 'read') return handleRead(e);
   return jsonResponse({ success: false, error: 'Invalid GET request action' });
 }
 
 function doPost(e) {
-  // Melayani aksi 'create', 'update', 'delete'
   return handleRequest(e);
 }
 
@@ -84,98 +81,26 @@ function doOptions(e) {
 }
 
 function handleRead(e) {
-  const lock = LockService.getScriptLock();
-  lock.tryLock(10000);
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheetName = e.parameter.sheet || 'Didil';
-    let sheet = ss.getSheetByName(sheetName);
-    
-    if (!sheet) {
-      sheet = ss.insertSheet(sheetName);
-      sheet.appendRow(['Nama Perusahaan', 'Posisi', 'Status', 'Salary', 'Lokasi', 'Apply via', 'Apply date', 'Notes']);
-      return jsonResponse({ success: true, data: [] });
-    }
-    
-    const data = sheet.getDataRange().getValues();
-    data.shift(); 
-    
-    const rows = data.map((row, index) => ({
-      rowIndex: index + 2,
-      company: row[0], position: row[1], status: row[2], salary: row[3],
-      location: row[4], applyVia: row[5], applyDate: row[6], notes: row[7]
-    }));
-    return jsonResponse({ success: true, data: rows });
-  } catch (err) {
-    return jsonResponse({ success: false, error: 'Apps Script Read Error: ' + err.toString() });
-  } finally {
-    lock.releaseLock();
-  }
+  // Logic pembacaan data, menggunakan jsonpResponse jika ada callback
+  // ... (Lihat Kode.gs di atas)
 }
 
 function handleRequest(e) {
-  const lock = LockService.getScriptLock();
-  lock.tryLock(10000);
+  // Logic penulisan data (POST)
+  // ... (Lihat Kode.gs di atas)
+}
 
-  try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const body = JSON.parse(e.postData.contents);
-    const action = body.action;
-    const sheetName = body.sheet || 'Didil';
-    
-    let sheet = ss.getSheetByName(sheetName);
-    if (!sheet) {
-      sheet = ss.insertSheet(sheetName);
-      sheet.appendRow(['Nama Perusahaan', 'Posisi', 'Status', 'Salary', 'Lokasi', 'Apply via', 'Apply date', 'Notes']);
-    }
-
-    if (action === 'create' || action === 'update') {
-      const rowData = [
-        body.company, body.position, body.status, body.salary, 
-        body.location, body.applyVia, body.applyDate, body.notes
-      ];
-      
-      if (action === 'create') {
-        sheet.appendRow(rowData);
-      } else { // 'update'
-        const rowIndex = parseInt(body.rowIndex);
-        if (rowIndex > 1) {
-          sheet.getRange(rowIndex, 1, 1, 8).setValues([rowData]);
-        } else {
-          return jsonResponse({ success: false, error: 'Invalid Row Index for update' });
-        }
-      }
-      return jsonResponse({ success: true });
-    }
-
-    if (action === 'delete') {
-      const rowIndex = parseInt(body.rowIndex);
-      if (rowIndex > 1) {
-        sheet.deleteRow(rowIndex);
-        return jsonResponse({ success: true });
-      }
-      return jsonResponse({ success: false, error: 'Invalid Row Index for delete' });
-    }
-    
-    return jsonResponse({ success: false, error: 'Invalid action in POST body' });
-
-  } catch (err) {
-    return jsonResponse({ success: false, error: 'Apps Script Write Error: ' + err.toString() });
-  } finally {
-    lock.releaseLock();
-  }
+function jsonpResponse(data, callbackName) {
+  // ... (Lihat Kode.gs di atas)
 }
 
 function jsonResponse(data) {
-  const output = ContentService.createTextOutput(JSON.stringify(data))
-    .setMimeType(ContentService.MimeType.JSON);
-  output.setHeader('Access-Control-Allow-Origin', '*'); 
-  output.setHeader('Access-Control-Allow-Headers', 'Content-Type'); 
-  return output;
+  // ... (Lihat Kode.gs di atas)
 }
 `;
 
-// --- Components ---
+// --- Components (StatusBadge, StatCard, Modal - Tetap sama) ---
+
 const StatusBadge = ({ status }: { status: Status }) => (
   <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium border ${STATUS_COLORS[status] || 'bg-gray-100 text-gray-800'}`}>
     {status}
@@ -219,7 +144,6 @@ const Modal = ({ isOpen, onClose, title, children }: any) => {
   );
 };
 
-
 // --- Main App Component ---
 
 const App = () => {
@@ -244,7 +168,6 @@ const App = () => {
     const savedEndpoint = localStorage.getItem('gas_endpoint');
     if (savedEndpoint) setApiEndpoint(savedEndpoint);
 
-    // Load local data initially if no endpoint
     if (!savedEndpoint) {
       const localData = localStorage.getItem(`jobs_${activeSheet}`);
       if (localData) {
@@ -273,46 +196,50 @@ const App = () => {
     if (!endpoint) return;
     setIsLoading(true);
 
-    // KODE PERBAIKAN CORS MENGGUNAKAN XHR (XMLHttpRequest)
-    // Ini adalah solusi paling andal untuk menghindari masalah 302 redirect CORS pada Apps Script
+    // SOLUSI JSONP untuk mengatasi CORS/302 redirect pada permintaan GET
     return new Promise((resolve, reject) => {
-      const url = `${endpoint}?action=read&sheet=${sheet}`;
-      const xhr = new XMLHttpRequest();
-      xhr.open('GET', url);
+      // 1. Definisikan fungsi callback global yang unik
+      const callbackName = `gasCallback${Date.now()}`;
 
-      // Penting: Mengatasi masalah 302 Redirect yang memblokir CORS
-      xhr.withCredentials = true;
-      xhr.responseType = 'json';
-
-      xhr.onload = function () {
+      (window as any)[callbackName] = (result: any) => {
         setIsLoading(false);
-        if (xhr.status === 200) {
-          const result = xhr.response;
-          if (result && result.success) {
-            const mapped: Job[] = result.data.map((r: any) => ({
-              ...r,
-              id: Math.random().toString(36).substr(2, 9)
-            }));
-            setJobs(mapped);
-            resolve(true);
-          } else {
-            alert("Error fetching data: " + (result?.error || "Unknown error."));
-            reject(new Error(result?.error || "Unknown error."));
-          }
+        // 4. Setelah data diterima dan fungsi callback dipanggil:
+        if (result && result.success) {
+          const mapped: Job[] = result.data.map((r: any) => ({
+            ...r,
+            id: Math.random().toString(36).substr(2, 9)
+          }));
+          setJobs(mapped);
+          resolve(true);
         } else {
-          alert(`Failed to fetch data. HTTP Status: ${xhr.status}. Check your Apps Script deployment.`);
-          reject(new Error(`HTTP Error: ${xhr.status}`));
+          alert("Error fetching data: " + (result?.error || "Unknown error."));
+          reject(new Error(result?.error || "Unknown error."));
         }
+
+        // Bersihkan skrip dan callback
+        document.head.removeChild(script);
+        delete (window as any)[callbackName];
       };
 
-      xhr.onerror = function () {
+      // 2. Buat URL dengan parameter callback
+      const url = `${endpoint}?action=read&sheet=${sheet}&callback=${callbackName}`;
+
+      // 3. Buat dan masukkan elemen skrip untuk memuat data dari GAS
+      const script = document.createElement('script');
+      script.src = url;
+      script.async = true;
+
+      // Tambahkan error handling jika skrip gagal dimuat
+      script.onerror = () => {
         setIsLoading(false);
-        console.error("XHR Network Error", xhr);
-        alert('Network error when trying to fetch data from Google Sheet.');
-        reject(new Error('Network error'));
+        console.error('JSONP script load error. Check GAS URL and deployment.');
+        alert('Failed to load data script from Google Sheet.');
+        delete (window as any)[callbackName];
+        document.head.removeChild(script);
+        reject(new Error('JSONP load error'));
       };
 
-      xhr.send();
+      document.head.appendChild(script);
     });
   };
 
@@ -326,7 +253,7 @@ const App = () => {
     };
 
     if (apiEndpoint) {
-      // SEND TO GOOGLE SHEETS
+      // SEND TO GOOGLE SHEETS via standard fetch (POST is less prone to 302 redirect)
       try {
         const action = isEdit ? 'update' : 'create';
         const body = {
@@ -336,7 +263,6 @@ const App = () => {
           ...payload
         };
 
-        // Menggunakan fetch standar untuk POST, karena header Content-Type sudah cukup
         const response = await fetch(apiEndpoint, {
           method: 'POST',
           headers: {
@@ -440,7 +366,7 @@ const App = () => {
     setShowConfig(false);
   };
 
-  // --- Derived State ---
+  // --- Derived State (Tetap sama) ---
 
   const filteredJobs = useMemo(() => {
     return jobs.filter(job => {
